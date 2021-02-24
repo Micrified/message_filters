@@ -55,8 +55,9 @@ public:
    * \param node The rclcpp::Node::SharedPtr to use to subscribe.
    * \param topic The topic to subscribe to.
    * \param qos (optional) The rmw qos profile to use to subscribe
+   * \param callback_priority The priority of the callback associated with the subscription
    */
-  virtual void subscribe(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default) = 0;
+  virtual void subscribe(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1) = 0;
 
   /**
    * \brief Subscribe to a topic.
@@ -66,8 +67,9 @@ public:
    * \param node The rclcpp::Node to use to subscribe.
    * \param topic The topic to subscribe to.
    * \param qos (optional) The rmw qos profile to use to subscribe
+   * \param callback_priority The priority of the callback associated with the subscription
    */
-  virtual void subscribe(rclcpp::Node * node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default) = 0;
+  virtual void subscribe(rclcpp::Node * node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1) = 0;
   /**
    * \brief Re-subscribe to a topic.  Only works if this subscriber has previously been subscribed to a topic.
    */
@@ -112,15 +114,16 @@ public:
    * \param node The rclcpp::Node::SharedPtr to use to subscribe.
    * \param topic The topic to subscribe to.
    * \param qos (optional) The rmw qos profile to use to subscribe
+   * \param callback_priority The priority of the callback associated with the subscription
    */
-  Subscriber(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default)
+  Subscriber(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1)
   {
-    subscribe(node, topic, qos);
+    subscribe(node, topic, qos, callback_priority);
   }
 
-  Subscriber(rclcpp::Node* node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default)
+  Subscriber(rclcpp::Node* node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1)
   {
-    subscribe(node, topic, qos);
+    subscribe(node, topic, qos, callback_priority);
   }
 
   /**
@@ -141,12 +144,14 @@ public:
    * \param node The rclcpp::Node::SharedPtr to use to subscribe.
    * \param topic The topic to subscribe to.
    * \param qos (optional) The rmw qos profile to use to subscribe
+   * \param callback_priority The priority of the callback associated with the subscription
    */
-  void subscribe(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default)
+  void subscribe(rclcpp::Node::SharedPtr node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1)
   {
-    subscribe(node.get(), topic, qos);
+    subscribe(node.get(), topic, qos, callback_priority);
     node_raw_ = nullptr;
     node_shared_ = node;
+    callback_priority_ = callback_priority;
   }
 
   /**
@@ -157,9 +162,10 @@ public:
    * \param node The rclcpp::Node to use to subscribe.
    * \param topic The topic to subscribe to.
    * \param qos (optional) The rmw qos profile to use to subscribe
+   * \param callback_priority The priority of the callback associated with the subscription
    */
   // TODO(wjwwood): deprecate in favor of API's that use `rclcpp::QoS` instead.
-  void subscribe(rclcpp::Node * node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default)
+  void subscribe(rclcpp::Node * node, const std::string& topic, const rmw_qos_profile_t qos = rmw_qos_profile_default, const int callback_priority = -1)
   {
     unsubscribe();
 
@@ -172,7 +178,10 @@ public:
       sub_ = node->create_subscription<M>(topic, rclcpp_qos,
                [this](std::shared_ptr<M const> msg) {
                  this->cb(EventType(msg));
-               });
+               },
+               rclcpp::SubscriptionOptions(),
+               rclcpp::message_memory_strategy::MessageMemoryStrategy<M>::create_default(),
+               callback_priority);
 
       node_raw_ = node;
     }
@@ -186,9 +195,9 @@ public:
     if (!topic_.empty())
     {
       if (node_raw_ != nullptr) {
-        subscribe(node_raw_, topic_, qos_);
+        subscribe(node_raw_, topic_, qos_, callback_priority_);
       } else if (node_shared_ != nullptr) {
-        subscribe(node_shared_, topic_, qos_);
+        subscribe(node_shared_, topic_, qos_, callback_priority_);
       }
     }
   }
@@ -242,6 +251,7 @@ private:
 
   std::string topic_;
   rmw_qos_profile_t qos_;
+  int callback_priority_;
 };
 
 }  // namespace message_filters
